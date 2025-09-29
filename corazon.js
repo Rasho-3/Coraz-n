@@ -6,9 +6,14 @@ canvas.height = window.innerHeight;
 // --- Variables ---
 let particles = [];
 let stars = [];
+let shootingStars = [];
 let angle = 0;
 let colorIndex = 0;
 let lastColorChange = Date.now();
+let scaleFactor = 1; // para latido del corazón
+let scaleDirection = 1;
+let galaxyPulse = 0; // para resplandor galaxia
+let galaxyDirection = 1;
 const colors = ["red", "green", "pink", "orange"];
 
 // --- Crear partículas del corazón ---
@@ -45,20 +50,35 @@ function createStars() {
     }
 }
 
+// --- Crear estrella fugaz ---
+function createShootingStar() {
+    const startX = Math.random() * canvas.width;
+    shootingStars.push({
+        x: startX,
+        y: -50,
+        length: 150,
+        speed: 8 + Math.random() * 4,
+        alpha: 1
+    });
+}
+
 // --- Dibujar fondo espacial con nebulosa ---
 function drawBackground() {
     // Fondo negro
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Nebulosa difusa
+    // Pulso de la galaxia
+    galaxyPulse += 0.005 * galaxyDirection;
+    if (galaxyPulse > 0.2 || galaxyPulse < -0.2) galaxyDirection *= -1;
+
     const grad = ctx.createRadialGradient(
         canvas.width * 0.6, canvas.height * 0.4, 50,
         canvas.width / 2, canvas.height / 2, canvas.width * 0.7
     );
-    grad.addColorStop(0, "rgba(180,100,255,0.3)");
-    grad.addColorStop(0.3, "rgba(138,43,226,0.25)");
-    grad.addColorStop(0.6, "rgba(25,25,112,0.2)");
+    grad.addColorStop(0, `rgba(180,100,255,${0.3 + galaxyPulse})`);
+    grad.addColorStop(0.3, `rgba(138,43,226,${0.25 + galaxyPulse})`);
+    grad.addColorStop(0.6, `rgba(25,25,112,${0.2 + galaxyPulse})`);
     grad.addColorStop(1, "rgba(0,0,0,1)");
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -72,6 +92,22 @@ function drawBackground() {
         ctx.fillStyle = `rgba(255,255,255,${star.alpha})`;
         ctx.fill();
     });
+
+    // Dibujar estrellas fugaces
+    shootingStars.forEach((s, i) => {
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x - s.length, s.y - s.length);
+        ctx.strokeStyle = `rgba(255,255,255,${s.alpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        s.x += s.speed;
+        s.y += s.speed;
+        s.alpha -= 0.02;
+
+        if (s.alpha <= 0) shootingStars.splice(i, 1);
+    });
 }
 
 // --- Dibujar corazón de partículas ---
@@ -83,15 +119,25 @@ function drawHeart() {
     }
     const color = colors[colorIndex];
 
+    // Rotación y latido
     angle += 0.004;
+    scaleFactor += 0.005 * scaleDirection;
+    if (scaleFactor > 1.1 || scaleFactor < 0.9) scaleDirection *= -1;
+
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2 + 50;
 
     particles.forEach(p => {
         let x = p.x - centerX;
         let y = p.y - centerY;
+
+        // Rotación
         let rx = x * Math.cos(angle) - y * Math.sin(angle);
         let ry = x * Math.sin(angle) + y * Math.cos(angle);
+
+        // Latido (escala)
+        rx *= scaleFactor;
+        ry *= scaleFactor;
 
         ctx.beginPath();
         ctx.arc(centerX + rx, centerY + ry, 1.5, 0, Math.PI * 2);
@@ -130,11 +176,8 @@ function showLiseth() {
 
         document.body.appendChild(nombreDiv);
 
-        // Aparecer todos al mismo tiempo
         setTimeout(() => { nombreDiv.style.opacity = "1"; }, 100);
-        // Desaparecer
         setTimeout(() => { nombreDiv.style.opacity = "0"; }, 5000);
-        // Borrar
         setTimeout(() => { document.body.removeChild(nombreDiv); }, 6000);
     });
 }
@@ -153,6 +196,9 @@ animate();
 
 // --- Mostrar nombres repetidamente ---
 setInterval(showLiseth, 7000);
+
+// --- Crear estrellas fugaces de vez en cuando ---
+setInterval(createShootingStar, 5000);
 
 // --- CSS para el corazón palpitando ---
 const style = document.createElement("style");
