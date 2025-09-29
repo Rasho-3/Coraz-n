@@ -7,6 +7,7 @@ canvas.height = window.innerHeight;
 let particles = [];
 let stars = [];
 let shootingStars = [];
+let floatingHearts = [];
 let angle = 0;
 let colorIndex = 0;
 let lastColorChange = Date.now();
@@ -14,25 +15,20 @@ let scaleFactor = 1; // para latido del corazón
 let scaleDirection = 1;
 let galaxyPulse = 0; // para resplandor galaxia
 let galaxyDirection = 1;
+let zoom = 0.6; // efecto de acercamiento
 const colors = ["red", "green", "pink", "orange"];
 
 // --- Crear partículas del corazón ---
 function createHeartParticles() {
     particles = [];
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2 + 50; // más abajo
-    const numParticles = 5000;
-
+    const numParticles = 6000; // más denso
     for (let i = 0; i < numParticles; i++) {
         const t = Math.random() * Math.PI * 2;
         const r = Math.random();
         const x = 16 * Math.pow(Math.sin(t), 3) * r;
         const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) * r;
 
-        particles.push({
-            x: centerX + x * 20,
-            y: centerY + y * 20
-        });
+        particles.push({ x, y });
     }
 }
 
@@ -62,13 +58,22 @@ function createShootingStar() {
     });
 }
 
+// --- Crear corazones flotantes ---
+function createFloatingHeart() {
+    floatingHearts.push({
+        x: Math.random() * canvas.width,
+        y: canvas.height + 20,
+        size: 20 + Math.random() * 15,
+        speed: 1 + Math.random() * 2,
+        alpha: 1
+    });
+}
+
 // --- Dibujar fondo espacial con nebulosa ---
 function drawBackground() {
-    // Fondo negro
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Pulso de la galaxia
     galaxyPulse += 0.005 * galaxyDirection;
     if (galaxyPulse > 0.2 || galaxyPulse < -0.2) galaxyDirection *= -1;
 
@@ -83,7 +88,7 @@ function drawBackground() {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Dibujar estrellas
+    // Estrellas
     stars.forEach(star => {
         star.alpha += star.speed;
         if (star.alpha > 1 || star.alpha < 0) star.speed *= -1;
@@ -93,7 +98,7 @@ function drawBackground() {
         ctx.fill();
     });
 
-    // Dibujar estrellas fugaces
+    // Estrellas fugaces
     shootingStars.forEach((s, i) => {
         ctx.beginPath();
         ctx.moveTo(s.x, s.y);
@@ -112,32 +117,31 @@ function drawBackground() {
 
 // --- Dibujar corazón de partículas ---
 function drawHeart() {
-    // Cambio de color cada 3 segundos
     if (Date.now() - lastColorChange > 3000) {
         colorIndex = (colorIndex + 1) % colors.length;
         lastColorChange = Date.now();
     }
     const color = colors[colorIndex];
 
-    // Rotación y latido
     angle += 0.004;
     scaleFactor += 0.005 * scaleDirection;
     if (scaleFactor > 1.1 || scaleFactor < 0.9) scaleDirection *= -1;
+
+    // Efecto de acercamiento inicial
+    if (zoom < 1) zoom += 0.0015;
 
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2 + 50;
 
     particles.forEach(p => {
-        let x = p.x - centerX;
-        let y = p.y - centerY;
+        let x = p.x * 20;
+        let y = p.y * 20;
 
-        // Rotación
         let rx = x * Math.cos(angle) - y * Math.sin(angle);
         let ry = x * Math.sin(angle) + y * Math.cos(angle);
 
-        // Latido (escala)
-        rx *= scaleFactor;
-        ry *= scaleFactor;
+        rx *= scaleFactor * zoom;
+        ry *= scaleFactor * zoom;
 
         ctx.beginPath();
         ctx.arc(centerX + rx, centerY + ry, 1.5, 0, Math.PI * 2);
@@ -148,7 +152,30 @@ function drawHeart() {
     });
 }
 
-// --- Mostrar varios "Liseth ❤️" al mismo tiempo ---
+// --- Dibujar corazones flotantes ---
+function drawFloatingHearts() {
+    floatingHearts.forEach((h, i) => {
+        ctx.save();
+        ctx.translate(h.x, h.y);
+        ctx.scale(h.size / 20, h.size / 20);
+        ctx.beginPath();
+        ctx.moveTo(0, -10);
+        ctx.bezierCurveTo(10, -20, 20, -5, 0, 15);
+        ctx.bezierCurveTo(-20, -5, -10, -20, 0, -10);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(255,0,0,${h.alpha})`;
+        ctx.shadowColor = "red";
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.restore();
+
+        h.y -= h.speed;
+        h.alpha -= 0.002;
+        if (h.alpha <= 0) floatingHearts.splice(i, 1);
+    });
+}
+
+// --- Mostrar varios "Liseth ❤️" ---
 function showLiseth() {
     const posiciones = [
         {top: "10%", left: "10%"},
@@ -186,6 +213,7 @@ function showLiseth() {
 function animate() {
     drawBackground();
     drawHeart();
+    drawFloatingHearts();
     requestAnimationFrame(animate);
 }
 
@@ -194,13 +222,16 @@ createHeartParticles();
 createStars();
 animate();
 
-// --- Mostrar nombres repetidamente ---
+// --- Nombres repetidos ---
 setInterval(showLiseth, 7000);
 
-// --- Crear estrellas fugaces de vez en cuando ---
+// --- Estrellas fugaces ---
 setInterval(createShootingStar, 5000);
 
-// --- CSS para el corazón palpitando ---
+// --- Corazones flotantes ---
+setInterval(createFloatingHeart, 800);
+
+// --- CSS animación ---
 const style = document.createElement("style");
 style.innerHTML = `
 @keyframes palpitar {
